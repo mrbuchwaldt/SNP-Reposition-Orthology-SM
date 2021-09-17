@@ -1,0 +1,43 @@
+name: alignment
+channels:
+  - conda-forge
+  - bioconda
+  - default
+  - defaults
+dependencies:
+  - blast=2.6.0=boost1.64_2
+  - bowtie=1.2.2=py27h470a237_1
+  - bowtie2=2.3.5=py27h5c9b4e4_0
+  - bwa=0.7.17=ha441bb4_5
+  - ca-certificates=2020.12.5=h033912b_0
+  - certifi=2019.11.28=py27h8c360ce_1
+  - genblastg=1.39=1
+  - hisat2=2.1.0=py27h04f5b5a_3
+  - jellyfish=2.2.10=h04f5b5a_1
+  - jemalloc=5.2.1=hb1e8313_4
+  - libcxx=11.0.0=h4c3b8ed_1
+  - libffi=3.2.1=hb1e8313_1007
+  - libpng=1.6.37=h7cec526_2
+  - libuuid=2.32.1=h35c211d_1000
+  - mysql-connector-c=6.1.11=h0f02589_1007
+  - ncurses=6.2=h2e338ed_4
+  - openjdk=11.0.8=hb0a8c7a_0
+  - openssl=1.1.1k=h0d85af4_0
+  - perl=5.32.0=hbcb3906_0
+  - pip=20.1.1=pyh9f0ad1d_0
+  - python=2.7.15=h8e446fc_1011_cpython
+  - python_abi=2.7=1_cp27m
+  - readline=8.0=h0678c8f_2
+  - setuptools=44.0.0=py27_0
+  - sickle-trim=1.33=ha92aebf_4
+  - sqlite=3.34.0=h17101e1_0
+  - star=2.7.1a=0
+  - tbb=2020.2=h926bf3e_2
+  - tk=8.6.10=h0419947_1
+  - trimmomatic=0.39=1
+  - ucsc-fasplit=377=h516baf0_1
+  - ucsc-twobitinfo=377=h516baf0_1
+  - wheel=0.36.2=pyhd3deb0d_0
+  - zlib=1.2.11=h7795811_1010
+prefix: /Users/buchwaldtm/miniconda3/envs/alignment
+

@@ -1,0 +1,23 @@
+#Identifier for the subset of SNPs to process, Used in filenamtes
+SNPSubsetID: GWAS_17K_set
+#Path to the SNP dataset
+SubsetSNPs: data/GWAS_set_17K_SNPs.csv
+#A multifasta for the flanking sequences of all SNPs
+AllFlankingSeqs: data/ABC_flanking.fasta
+#Identifier for the genome of interest (to place SNPs onto), Used in filenames
+GenomeID: BcarinataV2
+#The genome fasta file to search
+GenomeFastaDB: /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genome.fasta
+GenomeAnnoGFF: /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genes.gff3
+samples:
+    sk17: data/GWAS_SNPs_YogiFilter_sk17.csv
+    sk18: data/GWAS_SNPs_YogiFilter_sk18.csv
+#windowsize to get flanking genes from SNPs (in bases)
+btWindow: 250000
+
+#Parameters specific to the MCScanX orthology ruleset
+OrthoGenomes:
+    bcar: /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.pep.fasta
+    atha: /Volumes/PegasusMiles/Reference_Genomes/Athaliana/TAIR11/Araport11_genes.201606.pep.fasta
+GenomeGFF1: /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genes.gff3
+GenomeGFF2: /Volumes/PegasusMiles/Reference_Genomes/Athaliana/TAIR11/Araport11_GFF3_genes_transposons.Mar92021.gff

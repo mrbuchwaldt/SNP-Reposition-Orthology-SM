@@ -1,0 +1,120 @@
+
+#Configuration:
+#Includes path to relevant genome assembly files and relevant inputs
+configfile: "config/config.yaml"
+
+rule all:
+    input:
+        expand("results/{sample}.flankingGenes.gff", sample=config["samples"])
+
+#From a list of SNPs, pull the flanking sequences from the full multifasta
+#./filterFlanking.pl GWAS_set_17K_SNPs.csv ABC_flanking.fasta > GWAS_set_17K_SNPs.fasta 2> filterFlankingSequencesForGWASSet.err.log
+rule SubsetFlankingSequences:
+    input: 
+        snp=config["SubsetSNPs"],
+        fa=config["AllFlankingSeqs"]
+    output: expand("results/{snp}_Flanking.fasta", snp=config["SNPSubsetID"])
+    log: "results/logs/SubsetFlankingSequences.err.log"
+    shell: 
+        "workflow/scripts/filterFlanking.pl {input.snp} {input.fa} > {output} 2> {log}"
+
+#Redo BLAT with default minIdentity
+#blat -noHead /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genome.fasta GWAS_set_17K_SNPs.fasta GWAS_set_17K.Bcarinata.psl
+
+rule SearchGenomeWithFlanking:
+    input: 
+        db=config["GenomeFastaDB"],
+        fa=rules.SubsetFlankingSequences.output
+    output: 
+        psl=expand("results/{snp}.{genome}.psl", snp=config["SNPSubsetID"], genome=config["GenomeID"])
+    log: "results/logs/SearchGenomeWithFlanking.err.log"
+    shell: "blat -noHead {input.db} {input.fa} {output.psl} 2> {log}"
+
+
+#Pass sorted BLAT alignment output to a custom script to pull the best matching hits (keeps ties)
+#sort -k10,10 -k1,1gr GWAS_set_17K.Bcarinata.psl | ~/Projects/scripts_bin/blat_pick_best_hits.pl > Bcarinata.GWAS_snps_17K.bestHitsMostMatches.psl
+
+rule FilterAlignmentsForBestHits:
+    input: 
+        psl=rules.SearchGenomeWithFlanking.output.psl
+    output: 
+        psl=expand("results/{snp}.{genome}.filteredBest.psl", snp=config["SNPSubsetID"], genome=config["GenomeID"])
+    log: "results/logs/FilterAlignmentsForBestHits.err.log"
+    shell: "sort -k10,10 -k1,1gr {input.psl} | workflow/scripts/blat_pick_best_hits.pl > {output} 2> {log}"
+
+#---------------------------------------------------------------
+# REPORT:
+# At this stage, it might be prudent to check how many SNPs had:
+#	a singular good alignment to a location on the genome
+#	multiple conflicting alignments to the genome
+#	no alignments to a location on the genome
+# Also report how many alignments were filtered out
+#	histogram of number of hits removed for each unique SNP?
+#---------------------------------------------------------------
+
+#From the surviving alignments, attempt to calculate the position of the SNP base to coordinates on the new genome
+#./convertSNPPositions.pl Bcarinata.GWAS_snps_17K.bestHitsMostMatches.psl GWAS_set_17K_SNPs.csv GWAS_set_17K.BcarinataPos.bed > GWAS_set_17K.BcarinataPos.csv 2> convertPositions.err.log
+
+rule ConvertAlignmentsToNewPositions:
+    input:
+        psl=rules.FilterAlignmentsForBestHits.output.psl,
+        csv=config["SubsetSNPs"]
+    output:
+        bed=expand("results/{snp}_{genome}.newPos.bed", snp=config["SNPSubsetID"], genome=config["GenomeID"]),
+        csv=expand("results/{snp}_{genome}.newPos.csv", snp=config["SNPSubsetID"], genome=config["GenomeID"])
+    log: "results/logs/ConvertAlignmentsToNewPositions.err.log"
+    shell: "workflow/scripts/convertSNPPositions.pl {input.psl} {input.csv} {output.bed} > {output.csv} 2> {log}"
+
+# The remaining commands are for a reduced stringency in the BLAT search:
+#blat -noHead /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genome.fasta GWAS_set_17K_SNPs.fasta -minIdentity=85 GWAS_set_17K.Bcarinata-85i.psl
+#sort -k10,10 -k1,1gr GWAS_set_17K.Bcarinata-85i.psl | ~/Projects/scripts_bin/blat_pick_best_hits.pl > Bcarinata.GWAS_snps_17K-85i.bestHitsMostMatches.psl
+
+
+#--- SUBSET OF SNPs IDENTIFIED IN POPULATIONS sk17/sk18 ---#
+#
+# For a further subset of SNPs, get the recalculated positions
+#./getNewPosForSNPs.pl GWAS_SNPs_YogiFilter_sk17.csv GWAS_set_17K_SNPs.csv GWAS_set_17K.BcarinataPos.bed GWAS_SNPs_YogiFilter_sk17.newPos.unplaced.bed > GWAS_SNPs_YogiFilter_sk17.newPos.bed
+#./getNewPosForSNPs.pl GWAS_SNPs_YogiFilter_sk18.csv GWAS_set_17K_SNPs.csv GWAS_set_17K.BcarinataPos.bed GWAS_SNPs_YogiFilter_sk18.newPos.unplaced.bed > GWAS_SNPs_YogiFilter_sk18.newPos.bed
+
+rule RetrieveNewPosForSubsets:
+    input:
+        csv=lambda wildcards: config["samples"][wildcards.sample],
+        snp=config["SubsetSNPs"],
+        bed=rules.ConvertAlignmentsToNewPositions.output.bed
+    output:
+        unplaced="results/{sample}.newPos.unplaced.bed",
+        bed="results/{sample}.newPos.placed.bed"
+    log: "results/logs/RetrieveNewPosForSubsets.{sample}.err.log"
+    shell: "workflow/scripts/getNewPosForSNPs.pl {input.csv} {input.snp} {input.bed} {output.unplaced} > {output.bed} 2> {log}"
+
+
+#THIS REQUIRES GETTING BCARINATA POSITIONS FOR THESE SNPS FIRST [NOT DONE]
+#Need to remove header line from the bed files before bedtools
+#bedtools window -w 250000 -a GWAS_SNPs_YogiFilter_sk17.newPos.bed -b Bcarinata.v2.genesOnly.gff3 -header > GWAS_YogiFilterSNPs_sk17.flankingGenes.bed
+#bedtools window -w 250000 -a GWAS_SNPs_YogiFilter_sk18.newPos.bed -b Bcarinata.v2.genesOnly.gff3 -header > GWAS_YogiFilterSNPs_sk18.flankingGenes.bed
+
+rule FilterGFFGenesOnly:
+    input: config["GenomeAnnoGFF"]
+    output: expand("data/{genome}_genesOnly.gff", genome=config["GenomeID"])
+    params:
+        pattern="\"\tgene\t\""
+    shell: "grep {params.pattern} {input} > {output}"
+
+rule BedtoolsIntersectSetsWithGenes:
+    input:
+        abed="results/{sample}.newPos.placed.bed",
+        bbed=expand("data/{genome}_genesOnly.gff", genome=config["GenomeID"])
+    output: 
+        "results/{sample}.flankingGenes.gff"
+    params:
+        bwt=config["btWindow"],
+    shell: "bedtools window -w {params.bwt} -a {input.abed} -b {input.bbed} -header > {output}"
+
+
+
+
+#ALTERNATIVE SEQUENCE ALIGNMENT: BLAST
+#blastn -query GWAS_set_17k_SNPs.fasta -db /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genome.fasta -task blastn-short -outfmt 6 -out Bcarinata.GWAS_snps_17k.blastn-short.out -num_threads 8
+#blastn -query GWAS_set_17k_SNPs.fasta -db /Volumes/PegasusMiles/Reference_Genomes/Bcarinata/Bcarinata.v2.genome/Bcarinata.v2.genome.fasta -outfmt 6 -out Bcarinata.GWAS_snps_17k.blastn.out -num_threads 8
+#sort -k1,1 -k4,4nr -k3,3nr Bcarinata.GWAS_snps_17k.blastn.out > Bcarinata.GWAS_snps_17k.blastn.sorted.out
+
